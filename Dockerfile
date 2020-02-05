@@ -15,23 +15,33 @@
 
 #----------------------------------------------------------
 
-FROM nexus3.o-ran-sc.org:10004/bldr-ubuntu16-c-go:1-u16.04-nng1.1.1 AS appmgr-build
+# ARG DOCKER_REPO=nexus3.o-ran-sc.org:10004
+ARG DOCKER_REPO=akrainoenea
+
+FROM ${DOCKER_REPO}/bldr-ubuntu16-c-go:3-u16.04-nng AS appmgr-build
+
+# ARG ARCH=amd64
+ARG ARCH=arm64
 
 RUN apt-get update -y && apt-get install -y jq
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 ARG HELMVERSION=v2.12.3
 ARG PACKAGEURL=gerrit.o-ran-sc.org/r/ric-plt/appmgr
+ENV HELM_PKG="helm-${HELMVERSION}-linux-${ARCH}.tar.gz"
 
 # Install helm
-RUN wget -nv https://storage.googleapis.com/kubernetes-helm/helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && tar -zxvf helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && cp linux-amd64/helm /usr/local/bin/helm \
-    && rm -rf helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && rm -rf linux-amd64
+RUN wget -nv https://storage.googleapis.com/kubernetes-helm/${HELM_PKG} \
+    && tar -zxvf ${HELM_PKG} \
+    && cp linux-${ARCH}/helm /usr/local/bin/helm \
+    && rm -rf ${HELM_PKG} \
+    && rm -rf linux-${ARCH}
 
-# Install kubectl from Docker Hub
-COPY --from=lachlanevenson/k8s-kubectl:v1.10.3 /usr/local/bin/kubectl /usr/local/bin/kubectl
+# Install kubectl
+ENV KUBE_VER=v1.10.3
+
+RUN wget -nv https://storage.googleapis.com/kubernetes-release/release/${KUBE_VER}/bin/linux/${ARCH}/kubectl \
+         -O /usr/local/bin/kubectl
 
 RUN mkdir -p /go/src/${PACKAGEURL}
 WORKDIR "/go/src/${PACKAGEURL}"
