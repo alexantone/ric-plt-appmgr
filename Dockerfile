@@ -49,8 +49,8 @@ RUN apt-get update -y && \
 #
 # go
 #
-RUN wget https://dl.google.com/go/go1.12.linux-amd64.tar.gz && \
-	tar -C /usr/local -xvf ./go1.12.linux-amd64.tar.gz
+RUN wget https://dl.google.com/go/go1.12.linux-arm64.tar.gz && \
+	tar -C /usr/local -xvf ./go1.12.linux-arm64.tar.gz
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 
@@ -58,7 +58,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 # rancodev libs
 #
 RUN mkdir -p /opt/build \
-    && cd /opt/build && git clone https://gerrit.o-ran-sc.org/r/ric-plt/lib/rmr \
+    && cd /opt/build && git clone --branch 1.1.0 https://gerrit.o-ran-sc.org/r/ric-plt/lib/rmr \
     && cd rmr/; mkdir build; cd build; cmake ..; make install \
     && cd /opt/build && git clone https://gerrit.o-ran-sc.org/r/com/log \
     && cd log/ ; ./autogen.sh ; ./configure ; make ; make install \
@@ -80,19 +80,20 @@ FROM appmgr-xapp-base as appmgr-build
 
 ARG PACKAGEURL
 ARG HELMVERSION
+ARG ARCH=arm64
+ENV HELM_PKG="helm-${HELMVERSION}-linux-${ARCH}.tar.gz"
 
+RUN wget -nv https://storage.googleapis.com/kubernetes-helm/${HELM_PKG} \
+    && tar -zxvf ${HELM_PKG} \
+    && cp linux-${ARCH}/helm /usr/bin/helm \
+    && rm -rf ${HELM_PKG} \
+    && rm -rf linux-${ARCH}
 
-#
-# helm
-#
-RUN wget https://storage.googleapis.com/kubernetes-helm/helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && tar -zxvf helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && cp linux-amd64/helm /usr/bin/helm \
-    && rm -rf helm-${HELMVERSION}-linux-amd64.tar.gz \
-    && rm -rf linux-amd64
+# Install kubectl
+ENV KUBE_VER=v1.10.3
 
-# Install kubectl from Docker Hub.
-COPY --from=lachlanevenson/k8s-kubectl:v1.10.3 /usr/local/bin/kubectl /usr/local/bin/kubectl
+RUN wget -nv https://storage.googleapis.com/kubernetes-release/release/${KUBE_VER}/bin/linux/${ARCH}/kubectl \
+         -O /usr/local/bin/kubectl
 
 RUN mkdir -p /go/src/${PACKAGEURL}
 WORKDIR "/go/src/${PACKAGEURL}"
